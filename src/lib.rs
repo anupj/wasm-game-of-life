@@ -1,9 +1,10 @@
 extern crate fixedbitset;
+use fixedbitset::FixedBitSet;
+
 extern crate js_sys;
 
 mod utils;
 
-use fixedbitset::FixedBitSet;
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -48,6 +49,17 @@ impl Universe {
         }
         count
     }
+
+    pub fn get_cells(&self) -> &FixedBitSet {
+        &self.cells
+    }
+
+    pub fn set_cells_to_alive(&mut self, cells: &[(u32, u32)]) {
+        for (row, col) in cells.iter().cloned() {
+            let idx = self.get_index(row, col);
+            self.cells.set(idx, true);
+        }
+    }
 }
 
 #[wasm_bindgen]
@@ -60,6 +72,22 @@ impl Universe {
     }
     pub fn cells(&self) -> *const u32 {
         self.cells.as_slice().as_ptr()
+    }
+
+    // set the width of the universe
+    // and resets all cells to the dead set
+    pub fn set_width(&mut self, width: u32) {
+        self.width = width;
+        self.cells = FixedBitSet::with_capacity((width * self.height) as usize);
+        self.cells.set_range(.., false);
+    }
+
+    // set the height of the universe
+    // and resets all cells to the dead set
+    pub fn set_height(&mut self, height: u32) {
+        self.height = height;
+        self.cells = FixedBitSet::with_capacity((height * self.width) as usize);
+        self.cells.set_range(.., false);
     }
 
     pub fn tick(&mut self) {
