@@ -2,6 +2,7 @@ extern crate fixedbitset;
 use fixedbitset::FixedBitSet;
 
 extern crate js_sys;
+extern crate web_sys;
 
 mod utils;
 
@@ -12,6 +13,14 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+// A macro to provide `println!(..)` style
+// syntax for console.log logging
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        web_sys::console::log_1(&format!( $( $t )* ).into());
+    }
+}
 
 #[wasm_bindgen]
 pub struct Universe {
@@ -91,25 +100,33 @@ impl Universe {
                 let idx = self.get_index(row, col);
                 let cell = self.cells[idx];
                 let live_neighbours = self.live_neighbour_count(row, col);
-                next.set(
-                    idx,
-                    match (cell, live_neighbours) {
-                        // Rule 1: Any live cell with fewer than two live neighbours
-                        // dies, as if caused by underpopulation
-                        (true, x) if x < 2 => false,
-                        // Rule 2: Any live cell with two or three live neighbours
-                        // lives on to the next generation
-                        (true, 2) | (true, 3) => true,
-                        // Rule 3: Any live cell with more than three live
-                        // neighbours dies, as if by overpopulation.
-                        (true, x) if x > 3 => false,
-                        // Rule 4: Any dead cell with exactly three live neighbours
-                        // becomes a live cell, as if by reproduction
-                        (false, 3) => true,
-                        // All other cells remain in the same state
-                        (otherwise, _) => otherwise,
-                    },
+
+                log!(
+                    "cell[{}, {}] is initially {:?} and has {} live neighbours",
+                    row,
+                    col,
+                    cell,
+                    live_neighbours
                 );
+
+                let next_cell = match (cell, live_neighbours) {
+                    // Rule 1: Any live cell with fewer than two live neighbours
+                    // dies, as if caused by underpopulation
+                    (true, x) if x < 2 => false,
+                    // Rule 2: Any live cell with two or three live neighbours
+                    // lives on to the next generation
+                    (true, 2) | (true, 3) => true,
+                    // Rule 3: Any live cell with more than three live
+                    // neighbours dies, as if by overpopulation.
+                    (true, x) if x > 3 => false,
+                    // Rule 4: Any dead cell with exactly three live neighbours
+                    // becomes a live cell, as if by reproduction
+                    (false, 3) => true,
+                    // All other cells remain in the same state
+                    (otherwise, _) => otherwise,
+                };
+                log!(" it becomes {:?}", next_cell);
+                next.set(idx, next_cell);
             } // end of inner loop over columns
         } // end of loop over rows
 
@@ -123,6 +140,7 @@ impl Universe {
     // of live and dead cells, as well as
     // `render` method
     pub fn new() -> Universe {
+        utils::set_panic_hook();
         let width = 64;
         let height = 64;
 
